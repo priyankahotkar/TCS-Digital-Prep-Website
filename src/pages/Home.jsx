@@ -5,6 +5,7 @@ import TestCard from '../components/TestCard';
 import TestInstructions from '../components/TestInstructions';
 import { useApp } from '../context/AppContext';
 import { generateTestQuestions } from '../utils/testUtils';
+import Footer from '../components/Footer';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -151,6 +152,7 @@ export default function Home() {
           </div>
         </div>
       </div>
+      <Footer />
 
       {/* Instructions Modal */}
       {showInstructions && (

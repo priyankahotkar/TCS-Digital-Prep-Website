@@ -6,6 +6,7 @@ import { formatTime, getPerformanceLevel } from '../utils/testUtils';
 import { format } from 'date-fns';
 import { doc, getDoc, setDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
+import Footer from '../components/Footer';
 
 import {
   Chart as ChartJS,
@@ -295,6 +296,7 @@ export default function Progress() {
   };
 
   return (
+    <>
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
@@ -421,5 +423,7 @@ export default function Progress() {
         </div>
       </div>
     </div>
+    <Footer />
+    </>
   );
 }
