@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Line, Doughnut } from 'react-chartjs-2';
 import { Calendar, TrendingUp, Target, Clock, Award } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatTime, getPerformanceLevel } from '../utils/testUtils';
 import { format } from 'date-fns';
+import { doc, getDoc, setDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '../firebase/config';
 
 import {
   Chart as ChartJS,
@@ -30,7 +32,114 @@ ChartJS.register(
 
 export default function Progress() {
   const { state } = useApp();
-  const { testHistory } = state;
+  const [testHistory, setTestHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Save progress to Firestore
+  const saveProgress = async (userId, progressData) => {
+    try {
+      if (!userId) {
+        console.error('No user ID provided for saving progress');
+        return;
+      }
+      
+      const userProgressRef = doc(db, 'userProgress', userId);
+      console.log('Saving to Firestore:', {
+        userId,
+        progressData,
+        path: `userProgress/${userId}`
+      });
+      
+      await setDoc(userProgressRef, progressData, { merge: true });
+      console.log('Progress saved successfully');
+    } catch (error) {
+      console.error('Error saving progress:', error);
+    }
+  };
+
+  // Load progress from Firestore
+  const loadProgress = async (userId) => {
+    try {
+      console.log('Loading progress for user:', userId);
+      const userProgressRef = doc(db, 'userProgress', userId);
+      const docSnap = await getDoc(userProgressRef);
+      
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        console.log('Loaded progress data:', data);
+        const history = Array.isArray(data.testHistory) ? data.testHistory : [];
+        setTestHistory(history);
+        
+        // If we have context test history but not in Firestore, update Firestore
+        if (state.testHistory?.length > 0 && history.length === 0) {
+          console.log('Updating Firestore with context test history');
+          await saveProgress(userId, { 
+            testHistory: state.testHistory,
+            lastUpdated: serverTimestamp()
+          });
+          setTestHistory(state.testHistory);
+        }
+      } else {
+        console.log('No existing progress, initializing...');
+        // Initialize with context test history if available, otherwise empty array
+        const initialHistory = state.testHistory?.length > 0 ? state.testHistory : [];
+        await saveProgress(userId, { 
+          testHistory: initialHistory,
+          lastUpdated: serverTimestamp()
+        });
+        setTestHistory(initialHistory);
+      }
+    } catch (error) {
+      console.error('Error loading progress:', error);
+      setTestHistory([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load progress when component mounts or user changes
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        loadProgress(user.uid);
+      } else {
+        setTestHistory([]);
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Update local state when context testHistory changes
+  useEffect(() => {
+    if (state.testHistory?.length > 0) {
+      setTestHistory(state.testHistory);
+    }
+  }, [state.testHistory]);
+
+  // Save to Firestore whenever local testHistory changes
+  useEffect(() => {
+    const saveUserProgress = async () => {
+      if (testHistory.length > 0 && auth.currentUser) {
+        console.log('Saving progress to Firestore:', testHistory);
+        await saveProgress(auth.currentUser.uid, { 
+          testHistory: testHistory,
+          lastUpdated: serverTimestamp()
+        });
+      }
+    };
+
+    saveUserProgress();
+  }, [testHistory]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
 
   if (testHistory.length === 0) {
     return (

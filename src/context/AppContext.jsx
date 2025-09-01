@@ -17,7 +17,6 @@ const initialState = {
   isTestActive: false,
   testSubmitted: false,
   results: null,
-  isAuthenticated: false, // Add email verification status
 };
 
 function appReducer(state, action) {
@@ -26,8 +25,7 @@ function appReducer(state, action) {
       return { 
         ...state, 
         user: action.payload,
-        isLoading: false,
-        isAuthenticated: !!action.payload && action.payload.emailVerified,
+        isLoading: false
       };
       
     case 'SET_LOADING':
@@ -126,7 +124,6 @@ function appReducer(state, action) {
         user: null,
         isLoading: false,
         testHistory: [],
-        isAuthenticated: false,
       };
     
     default:
@@ -139,14 +136,9 @@ export function AppProvider({ children }) {
   
   // Handle auth state changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        // Force token refresh to get the latest email verification status
-        await user.getIdToken(true);
-        // Reload the user to get the latest data
-        await user.reload();
-      }
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
       dispatch({ type: 'SET_USER', payload: user });
+      dispatch({ type: 'SET_LOADING', payload: false });
     });
     
     return () => unsubscribe();
